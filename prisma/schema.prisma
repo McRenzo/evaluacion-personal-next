@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Rol {
+  ADMIN
+  EVALUADOR
+}
+
+enum EstadoPersonal {
+  ACTIVO
+  INACTIVO
+}
+
+enum EstadoPeriodo {
+  ACTIVO
+  CERRADO
+  PENDIENTE
+}
+
+enum EstadoEvaluacion {
+  PENDIENTE
+  EN_PROCESO
+  FINALIZADA
+  FIRMADA
+}
+
+model Personal {
+  id        Int            @id @default(autoincrement())
+  dni       String         @unique
+  apellidos String
+  nombres   String
+  cargo     String
+  estado    EstadoPersonal @default(ACTIVO)
+
+  acceso Acceso?
+
+  evaluacionesComoEvaluador Evaluacion[] @relation("Evaluador")
+  evaluacionesComoEvaluado  Evaluacion[] @relation("Evaluado")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Acceso {
+  id            Int     @id @default(autoincrement())
+  personalId    Int     @unique
+  password      String
+  rol           Rol
+  activo        Boolean @default(true)
+  primerIngreso Boolean @default(true)
+
+  personal Personal @relation(fields: [personalId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Periodo {
+  id          Int           @id @default(autoincrement())
+  nombre      String
+  anio        Int
+  fechaInicio DateTime?
+  fechaFin    DateTime?
+  estado      EstadoPeriodo @default(PENDIENTE)
+
+  evaluaciones Evaluacion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Ficha {
+  id          Int     @id @default(autoincrement())
+  nombre      String
+  descripcion String?
+  activa      Boolean @default(true)
+
+  secciones    SeccionFicha[]
+  evaluaciones Evaluacion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SeccionFicha {
+  id      Int    @id @default(autoincrement())
+  fichaId Int
+  nombre  String
+  orden   Int
+
+  ficha     Ficha      @relation(fields: [fichaId], references: [id], onDelete: Cascade)
+  criterios Criterio[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Criterio {
+  id        Int    @id @default(autoincrement())
+  seccionId Int
+  texto     String
+  orden     Int
+
+  seccion    SeccionFicha @relation(fields: [seccionId], references: [id], onDelete: Cascade)
+  respuestas Respuesta[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Evaluacion {
+  id           Int              @id @default(autoincrement())
+  periodoId    Int
+  fichaId      Int
+  evaluadorId  Int
+  evaluadoId   Int
+  estado       EstadoEvaluacion @default(PENDIENTE)
+  puntajeTotal Int?
+  resultado    String?
+  observacion  String?
+
+  periodo   Periodo  @relation(fields: [periodoId], references: [id])
+  ficha     Ficha    @relation(fields: [fichaId], references: [id])
+  evaluador Personal @relation("Evaluador", fields: [evaluadorId], references: [id])
+  evaluado  Personal @relation("Evaluado", fields: [evaluadoId], references: [id])
+
+  respuestas Respuesta[]
+  documentos Documento[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([periodoId, evaluadorId, evaluadoId, fichaId])
+}
+
+model Respuesta {
+  id           Int     @id @default(autoincrement())
+  evaluacionId Int
+  criterioId   Int
+  valor        Int
+  comentario   String?
+
+  evaluacion Evaluacion @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+  criterio   Criterio   @relation(fields: [criterioId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([evaluacionId, criterioId])
+}
+
+model Documento {
+  id           Int    @id @default(autoincrement())
+  evaluacionId Int
+  nombre       String
+  url          String
+  tipo         String
+
+  evaluacion Evaluacion @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
